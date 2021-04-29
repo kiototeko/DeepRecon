@@ -1,9 +1,12 @@
 enum34
-numpy
 six
 wheel
 mock
 h5py
-keras
+keras==2.2.5
 keras-applications
 keras-preprocessing
+matplotlib==3.1.2
+networkx==2.4
+numpy==1.17.4
+
