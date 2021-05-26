@@ -18,70 +18,49 @@ DeepRecon is an exemplary attack that reconstructs the architecture of the victi
 
 ### 1. Runtime Environment
 
- - Ubuntu 16.04
- - Python 2.7.15-rc1
+ - Python 2.7
  - TensorFlow 1.10.0
  - Mastik v0.0.2
+ - Keras 2.2
+ - Pillow
+ - libdwarf
 
 
-### 2. Preparations
 
-To run DeepRecon, we require two preparation steps:
-
- 1. Compiling TensorFlow from source to extract (only) the symbol table in use
- 2. Compiling the attack code with the support of the off-the-shelf Flush+Reload library (Mastik).
-
-#### 2.1. Build TensorFlow from Source
-
-The official instructions on building TensorFlow can be found at this [website](https://www.tensorflow.org/install/install_sources).
-
-##### 2.1.1 Install Bazel
-
-Bazel is Google's build system, required to build TensorFlow. Building TensorFlow usually requires an up-to-date
-version of Bazel; there is a good chance that whatever your package manager provides will be outdated. There are various ways to obtain a build of Bazel (see https://bazel.build/versions/master/docs/install-ubuntu.html).
-
-Note: we use the specific version of Bazel (**v0.16.1**). You can download and install from [here](https://github.com/bazelbuild/bazel/releases/tag/0.16.1).
-
-
-##### 2.1.2 Install Python Packages
-
-      $ pip install -r requirements.txt
-
-##### 2.1.3 Build and Install TensorFlow w. Bazel
-
-Run the configuration script (currently, we disable all the features) under the *tensorflow* dir.
-[Note: we recommend to use Python virtual environment, to suppress the conflicts with your system.]
-
-      $ ./configure <<< 'n'
-
-Compile This command will build Tensorflow using optimized settings for the current machine architecture.
-
-      $ bazel build -c dbg --strip=never //tensorflow/tools/pip_package:build_pip_package
-
-We still need to build a Python package using the now generated build_pip_package script.
-
-      $ bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
-
-Now there will be a package inside /tmp/tensorflow_pkg, which can be installed with pip.
-
-      $ pip install /tmp/tensorflow_pkg/tensorflow-<version>-<architecture>.whl
-
-
-#### 2.2. Compile the Attack Source
+#### 2. Compile the Attack Source
 
 Our attack reconstructs the DNN's architecture from the extracted attributes via Flush+Reload. We first build Mastik library that implements side-channel attacks and incorporate the library into the extraction code.
 
-##### 2.2.1 Build Mastik
+##### 2.1 Build Mastik
 
       $ ./build_mastik.sh
 
 
-##### 2.2.2 Build Attack Code
+##### 2.2 Build Attack Code
 
       $ cd attacks
       $ make
 
 ----
+
+#### 3. Find functions being called
+
+The shared library used by Tensorflow is in **/home/USER/miniconda3/envs/tense/lib/python2.7/site-packages/tensorflow/python/_pywrap_tensorflow_internal.so** if you are using conda.
+
+You can find the symbol names of all functions that can be possibly used by tensorflow, by running the following code:
+`nm /home/USER/miniconda3/envs/tense/lib/python2.7/site-packages/tensorflow/python/_pywrap_tensorflow_internal.so`
+
+The function names you see as output are the mangled names of C++ functions, if you want to see how they are actually named on the source files, use the -C flag or pipe the output through c++filt
+
+Now to find which functions are being used, first run one of the models found on *models* with gdb, for example:
+`gdb python`
+and when the prompt appears use `run vgg16.py`
+
+These programs have an input function before the model is actually used for inference, so when the program asks for input, instead stop it by using CTRL+Z and then it's time to use some breakpoints.
+
+You can use rbreak to put a breakpoint in all functions that match the regular expression. For example, we could use `rbreak .*Conv2DOp.*` to find all functions that have that have that string. Then you could just use `continue` and see if there is any interruption in the execution of the code.
+
+Once you know which functions are being called, you can insted put a breakpoint on that function, for example: we know *_ZN10tensorflow11MklConv2DOpIN5Eigen16ThreadPoolDeviceEfLb1EE7ComputeEPNS_15OpKernelContextE* corresponds to the Convolution in 2D, so we just use `break _ZN10tensorflow11MklConv2DOpIN5Eigen16ThreadPoolDeviceEfLb1EE7ComputeEPNS_15OpKernelContextE` to interrupt when this function is called.
 
 
 ## Running DeepRecon
@@ -135,23 +114,6 @@ The extracted data stored into the *accesses.raw.csv* file.
       ...
 
 ----
-
-## Running Defenses
-
-To test the effectiveness of defenses, run the decoy processes during the above attack times or run the unraveled models instead of running the off-the-shelf model available on the Internet.
-
-#### 1 Run Decoy Processes
-
-Run the scripts in the *defenses/decoys* along with the victim network.
-
-  1. **tiny_convs.py**: convolutional layer only.
-  2. **tiny_relus.py**: convolutional layer + ReLU activation.
-  3. **tiny_merges.py**: convolutional layer + ReLU activation + skip-connections.
-
-#### 2. Do Obfuscations Based on the Unraveling Method
-
-Run the **unravel_resnet50.py** script in the *defenses/obfuscations* and extract the architecture attributes.
-
 
 ----
 
