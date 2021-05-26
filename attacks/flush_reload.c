@@ -24,7 +24,7 @@
  */
 #define SAMPLES       20000000
 #define SLOT          5000
-#define THRESHOLD     200       // set by runnning Fr-threshold in 'Mastik/demo/'
+#define THRESHOLD     400       // set by runnning Fr-threshold in 'Mastik/demo/'
 #define MINTHRESHOLD  0
 #define MAX_IDLE      100000
 
@@ -32,6 +32,7 @@
  * Array of function symbols to monitor
  * (Note: these can be the source code --- ex. "mpih−mul.c:85")
  */
+/*
 char *monitor[] = {
   "_ZN10tensorflow12_GLOBAL__N_117RunCallableHelperEPNS_7SessionElP7_objectP9TF_StatusPNS_3gtl13InlinedVectorIS4_Li8EEEP9TF_Buffer",
   "_ZN10tensorflow6BiasOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE",
@@ -52,29 +53,34 @@ char *monitor[] = {
   "_ZN10tensorflow12ConcatBaseOpIN5Eigen16ThreadPoolDeviceEfLNS_16AxisArgumentNameE1EE7ComputeEPNS_15OpKernelContextE",
   "_ZN10tensorflow14LaunchConv2DOpIN5Eigen16ThreadPoolDeviceEfEclEPNS_15OpKernelContextEbbRKNS_6TensorES8_iiiiRKNS_7PaddingEPS6_NS_12TensorFormatE+128"
 };
+*/
+char *monitor[] = {
+"_ZN10tensorflow11MklConv2DOpIN5Eigen16ThreadPoolDeviceEfLb1EE7ComputeEPNS_15OpKernelContextE", //Conv
+"_ZN10tensorflow11MklMatMulOpIN5Eigen16ThreadPoolDeviceEfLb0EE7ComputeEPNS_15OpKernelContextE", //MatMul = FC
+"_ZN10tensorflow12MklSoftmaxOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //Softmax
+"_ZN10tensorflow15MklMaxPoolingOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //MaxPool
+"_ZN10tensorflow15MklAvgPoolingOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //AvgPool
+"_ZN10tensorflow8MklEluOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Elu
+"_ZN10tensorflow9MklReluOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Relu
+"_ZN10tensorflow9MklTanhOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Tanh
+"_ZN10tensorflow19MklFusedBatchNormOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //BatchNorm
+"_ZN10tensorflow23DepthwiseConv2dNativeOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE" //Depthwise Conv
+};
 
 /*
  *  Attributes for the monitored functions
  */
 char *_monitor_attrs[] = {
-  "RunCallableHelper",
-  "Bias",
+  "Conv",
+  "MatMul",
   "Softmax",
+  "MaxPool",
+  "AvgPool",
+  "Elu",
   "Relu",
   "Tanh",
-  "Sigmoid",
-  "Relu6",
-  "Softplus",
-  "Softsign",
-  "Selu",
-  "Elu",
-  "Launch Conv",
-  "MatMul",
-  "Max Pool",
-  "Merge Add",
-  "Average Pool",
-  "Concat",
-  "End Conv"
+  "BatchNorm",
+  "Depth_Conv",
 };
 
 
@@ -115,7 +121,6 @@ void access_info(
   }
   sprintf(csvfull, "%s/%s", outdir, csvfile);
   sprintf(outfull, "%s/%s", outdir, outfile);
-
   // Initialize the data-holders
   int * listOfThresholdTimes = (int *) malloc(sizeof(int) * l);
   int * listOfTimings = (int *) malloc(sizeof(int) * l);
@@ -124,13 +129,11 @@ void access_info(
   // Store the raw outputs to the csv file
   FILE *csvdata = fopen(csvfull, "w");
   int total = 0;
-
   for(int i = 0; i < l; i++){
     for(int j = 0; j < _nmonitor; j++) {
       int rrow = i;
       int rcol = j;
       int ridx = i*_nmonitor+j;
-
       if(res[ridx] < THRESHOLD && res[ridx] > MINTHRESHOLD) {
         listOfThresholdTimes[total] = rrow*_nmonitor;
         listOfTimings[total] = res[ridx];
@@ -140,9 +143,8 @@ void access_info(
                 rrow, rcol, res[ridx], _monitor_attrs[rcol]);
       }
       else {
+        //fprintf(csvdata, "%i,%i,%i,miss\n",rrow, rcol, res[ridx]);
         continue;
-        // fprintf(csvdata, "%i,%i,%i,miss\n", \
-        //         rrow, rcol, res[ridx]);
       }
     }
   }
@@ -161,7 +163,7 @@ int main(int ac, char **av) {
    * - Location of the library (.so) file
    * - Location to store the output
    */
-  char *libfile = "/home/sweety/venv2/lib/"
+  char *libfile = "/home/kiototeko/miniconda3/envs/nas2/lib/"
                   "python2.7/site-packages/tensorflow/"
                   "python/_pywrap_tensorflow_internal.so";
   char *outdir = av[1];
@@ -199,7 +201,7 @@ int main(int ac, char **av) {
   int l = fr_trace(fr, SAMPLES, res, SLOT, THRESHOLD, MAX_IDLE);
 
   // Output to the file location
-  fprintf(stderr, "Do analysis of collected data\n");
+  fprintf(stderr, "Do analysis of collected data: %i traces\n", l);
   access_info(l, res, outdir, "accesses.raw.csv", "accesses.txt");
 
   // Release the buffers
