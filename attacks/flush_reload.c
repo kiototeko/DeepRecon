@@ -24,7 +24,7 @@
  */
 #define SAMPLES       20000000
 #define SLOT          5000
-#define THRESHOLD     400       // set by runnning Fr-threshold in 'Mastik/demo/'
+#define THRESHOLD     100       // set by runnning Fr-threshold in 'Mastik/demo/'
 #define MINTHRESHOLD  0
 #define MAX_IDLE      100000
 
@@ -60,9 +60,9 @@ char *monitor[] = {
 "_ZN10tensorflow12MklSoftmaxOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //Softmax
 "_ZN10tensorflow15MklMaxPoolingOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //MaxPool
 "_ZN10tensorflow15MklAvgPoolingOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //AvgPool
-"_ZN10tensorflow8MklEluOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Elu
+//"_ZN10tensorflow8MklEluOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Elu
 "_ZN10tensorflow9MklReluOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Relu
-"_ZN10tensorflow9MklTanhOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Tanh
+//"_ZN10tensorflow9MklTanhOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Tanh
 "_ZN10tensorflow19MklFusedBatchNormOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //BatchNorm
 "_ZN10tensorflow23DepthwiseConv2dNativeOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE" //Depthwise Conv
 };
@@ -76,9 +76,9 @@ char *_monitor_attrs[] = {
   "Softmax",
   "MaxPool",
   "AvgPool",
-  "Elu",
+  //"Elu",
   "Relu",
-  "Tanh",
+  //"Tanh",
   "BatchNorm",
   "Depth_Conv",
 };
@@ -125,6 +125,7 @@ void access_info(
   int * listOfThresholdTimes = (int *) malloc(sizeof(int) * l);
   int * listOfTimings = (int *) malloc(sizeof(int) * l);
   int * listOfMonitorHitNum = (int *) malloc(sizeof(int) * l);
+  int * prevRes = calloc(_nmonitor, sizeof(int));
 
   // Store the raw outputs to the csv file
   FILE *csvdata = fopen(csvfull, "w");
@@ -134,13 +135,15 @@ void access_info(
       int rrow = i;
       int rcol = j;
       int ridx = i*_nmonitor+j;
-      if(res[ridx] < THRESHOLD && res[ridx] > MINTHRESHOLD) {
+      //printf("res[ridx] = %i\n", res[ridx]);
+      if(res[ridx] < THRESHOLD && res[ridx] > MINTHRESHOLD && ((rrow - prevRes[rcol] > 1000) || rrow == 0) ) {
         listOfThresholdTimes[total] = rrow*_nmonitor;
         listOfTimings[total] = res[ridx];
         listOfMonitorHitNum[total] = rcol;
         total++;
         fprintf(csvdata, "%i,%i,%i,hit,%s\n", \
                 rrow, rcol, res[ridx], _monitor_attrs[rcol]);
+	prevRes[rcol] = rrow;
       }
       else {
         //fprintf(csvdata, "%i,%i,%i,miss\n",rrow, rcol, res[ridx]);
@@ -163,7 +166,7 @@ int main(int ac, char **av) {
    * - Location of the library (.so) file
    * - Location to store the output
    */
-  char *libfile = "/home/kiototeko/miniconda3/envs/nas2/lib/"
+  char *libfile = "/home/kiototeko/miniconda3/envs/tense/lib/"
                   "python2.7/site-packages/tensorflow/"
                   "python/_pywrap_tensorflow_internal.so";
   char *outdir = av[1];
