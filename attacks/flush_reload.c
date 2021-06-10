@@ -22,11 +22,12 @@
  * MAX_IDLE is the amount of time in clock cycles the program will
  * wait before quitting after it's last postive sample.
  */
-#define SAMPLES       20000000
-#define SLOT          5000
+#define SAMPLES       100000000//20000000
+#define SLOT          5000//5000
 #define THRESHOLD     100       // set by runnning Fr-threshold in 'Mastik/demo/'
 #define MINTHRESHOLD  0
-#define MAX_IDLE      100000
+#define MAX_IDLE      10000000//100000
+#define FILTER	      1000//1000
 
 /*
  * Array of function symbols to monitor
@@ -64,9 +65,18 @@ char *monitor[] = {
 "_ZN10tensorflow9MklReluOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Relu
 //"_ZN10tensorflow9MklTanhOpIN5Eigen16ThreadPoolDeviceEfE14Compute_ScalarEPNS_15OpKernelContextE", //Tanh
 "_ZN10tensorflow19MklFusedBatchNormOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //BatchNorm
-"_ZN10tensorflow23DepthwiseConv2dNativeOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE" //Depthwise Conv
+"_ZN10tensorflow23DepthwiseConv2dNativeOpIN5Eigen16ThreadPoolDeviceEfE7ComputeEPNS_15OpKernelContextE", //Depthwise Conv
+"_ZN21mkldnn_primitive_desc6createIN6mkldnn4impl3cpu23_gemm_convolution_fwd_tILb0ELb0ELNS3_9cpu_isa_tE0EE4pd_tEEE15mkldnn_status_tPPS_PKNS2_9op_desc_tEPK21mkldnn_primitive_attrP13mkldnn_enginePKS_", //GEMM
+//"_ZN5Xbyak6RegExpC2ERKNS_3RegEi", //Inner loop
+//"_ZN5XbyakplERKNS_6RegExpES2_", //Inner loop2
+//"_ZNK5Xbyak6RegExp6verifyEv", //Inner loop3
+//"_ZN6mkldnn4impl3cpu28jit_avx2_conv_fwd_kernel_f3217oh_step_unroll_kwEiiii+408", //Unroll+408
+//"_ZN6mkldnn4impl3cpu28jit_avx2_conv_fwd_kernel_f3217oh_step_unroll_kwEiiii+486", //Unroll+486
+//"_ZN6mkldnn4impl3cpu28jit_avx2_conv_fwd_kernel_f3217oh_step_unroll_kwEiiii+933",//Unroll+933
+//"_ZN6mkldnn4impl3cpu28jit_avx2_conv_fwd_kernel_f3214width_blk_stepEiiicic" //width_block
 };
-
+//_ZN6mkldnn4impl3cpu27_jit_avx2_convolution_fwd_tILb0EE15execute_forwardEv._omp_fn.1
+//_ZN6mkldnn4impl3cpu28jit_avx2_conv_fwd_kernel_f329init_confERNS1_15jit_conv_conf_tERK25mkldnn_convolution_desc_tRKNS0_19memory_desc_wrapperESA_SA_RK21mkldnn_primitive_attrbf
 /*
  *  Attributes for the monitored functions
  */
@@ -81,7 +91,14 @@ char *_monitor_attrs[] = {
   //"Tanh",
   "BatchNorm",
   "Depth_Conv",
-};
+  "GEMM",
+  "Inner loop",
+  "Inner loop2"};
+//  "inner loop3",
+  //"unroll+408",
+  //"unroll+486",
+//  "unroll+933",
+//  "width_block"};
 
 
 // Size of array to monitor
@@ -136,7 +153,7 @@ void access_info(
       int rcol = j;
       int ridx = i*_nmonitor+j;
       //printf("res[ridx] = %i\n", res[ridx]);
-      if(res[ridx] < THRESHOLD && res[ridx] > MINTHRESHOLD && ((rrow - prevRes[rcol] > 1000) || rrow == 0) ) {
+      if(res[ridx] < THRESHOLD && res[ridx] > MINTHRESHOLD && ((rrow - prevRes[rcol] > FILTER) || rrow == 0) ) {
         listOfThresholdTimes[total] = rrow*_nmonitor;
         listOfTimings[total] = res[ridx];
         listOfMonitorHitNum[total] = rcol;
@@ -196,10 +213,10 @@ int main(int ac, char **av) {
 
   // Initialize probes
   uint16_t *res = (uint16_t *) malloc(SAMPLES * _nmonitor * sizeof(uint16_t));
+  //fprintf(stderr, "%i, %li\n", _nmonitor, SAMPLES * _nmonitor * sizeof(uint16_t));
   for (int i = 0; i < SAMPLES * _nmonitor ; i+= 4096/sizeof(uint16_t))
     res[i] = 1;
   fr_probe(fr, res);
-
   // Trace the function calls
   int l = fr_trace(fr, SAMPLES, res, SLOT, THRESHOLD, MAX_IDLE);
 

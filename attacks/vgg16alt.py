@@ -4,6 +4,8 @@ from keras.preprocessing.image import img_to_array
 from keras.applications.vgg16 import preprocess_input
 from keras.applications.vgg16 import decode_predictions
 from keras.applications.vgg16 import VGG16
+import keras
+import sys
 
 # iteration count
 _iter = 1 
@@ -14,7 +16,22 @@ _iter = 1
 """
 if __name__ == '__main__':
     # load the model
-    model = VGG16()
+    ic = int(sys.argv[1])
+    ker = int(sys.argv[2])
+    model = keras.Sequential([keras.layers.Conv2D(ic, (ker, ker),activation='relu',padding='same') for i in range(200)])
+    """
+    keras.layers.Conv2D(64, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(64, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(128, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(128, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(256, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(256, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(512, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(512, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(1024, (ker, ker),activation='relu',padding='same'),
+    keras.layers.Conv2D(1024, (ker, ker),activation='relu',padding='same')])
+    """
+
     # load an image from file
     image = load_img('../etc/mug.jpg', target_size=(224, 224))
     # convert the image pixels to a numpy array
@@ -31,11 +48,4 @@ if __name__ == '__main__':
 
     # return if no iteration
     if not _iter: exit() 
-    # convert the probabilities to class labels
-    label = decode_predictions(yhat)
-    # retrieve the most likely result, e.g. highest probability
-    label = label[0][0]
-    # print the classification
-    print('%s (%.2f%%)' % (label[1], label[2]*100))
-    # done.
 
